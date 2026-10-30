@@ -213,7 +213,11 @@ impl Session {
                 std::iter::once((l.path.clone(), LibraryReq::Fetch { have, usage: Some(usage(doc, &l.id)) })).chain(report)
             })
             .collect();
-        if let (false, Some(net)) = (jobs.is_empty(), self.live.link()) {
+        // Confined to automation roots, nothing reaches a server (#1095).
+        if jobs.is_empty() || crate::file_access::network_refused().is_some() {
+            return;
+        }
+        if let Some(net) = self.live.link() {
             net.library_background(jobs);
         }
     }

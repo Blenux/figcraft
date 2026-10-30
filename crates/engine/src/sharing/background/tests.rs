@@ -270,3 +270,33 @@ fn a_link_without_background_requests_is_waited_on() {
     let mut bare = Session::new();
     assert!(bare.start_background("plugin.directory.list", json!({"server": SERVER})).unwrap_err().to_string().contains("desktop app"));
 }
+
+/// Confined to automation roots, commands reach no server (#1095): browsing a plugin directory,
+/// hosting, joining and publishing are refused before the link is asked. Unconfined, the same
+/// request reaches the server as before.
+#[test]
+fn commands_confined_to_automation_roots_reach_no_server() {
+    let dir = std::env::temp_dir().join(format!("figcraft-roots-network-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let roots = Arc::new(crate::file_access::Roots::new(&[], &[dir.to_string_lossy().into_owned()]).unwrap());
+    let (mut s, wire) = session(false);
+    let refused = |r: Result<serde_json::Value, EngineError>| {
+        let e = r.unwrap_err().to_string();
+        assert!(e.contains(crate::file_access::NETWORK_REFUSED), "{e}");
+    };
+    crate::file_access::confined(Some(&roots), || {
+        refused(s.execute("plugin.directory.list", &json!({"server": SERVER})));
+        refused(s.execute("collab.host", &json!({})));
+        refused(s.execute("collab.join", &json!({"link": LINK})));
+        refused(s.execute("collab.publish", &json!({"server": SERVER})));
+    });
+    assert_eq!(wire.lock().unwrap().waited, 0, "the server was never asked");
+    assert!(s.live.iter().next().is_none(), "no session was started");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let r = s.execute("plugin.directory.list", &json!({"server": SERVER})).unwrap();
+    assert_eq!(r["plugins"][0]["id"], ID);
+    assert_eq!(wire.lock().unwrap().waited, 1);
+    let e = s.execute("collab.host", &json!({})).unwrap_err().to_string();
+    assert!(!e.contains(crate::file_access::NETWORK_REFUSED), "unconfined, the link is asked: {e}");
+}
