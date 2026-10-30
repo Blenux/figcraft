@@ -588,7 +588,8 @@ fn native_variables_become_token_sets_themes_and_applied_tokens() {
 }
 
 /// Penpot tokens have no shape for a colour calculation: each mode's token is the colour it shows,
-/// and one that resolves to nothing is left out with a warning.
+/// and one that resolves to nothing is left out with a warning. No reference names a token a set
+/// leaves out: an alias to one goes out as the colour it shows, or is left out with it.
 #[test]
 fn colour_calculations_export_as_the_colour_they_show() {
     let mut doc = Document::new("Calculated");
@@ -614,11 +615,34 @@ fn colour_calculations_export_as_the_colour_they_show() {
         &[("light", VariableValue::ColorAlpha { variable: "v1".into(), opacity: 0.5 }), ("dark", mix)],
     ));
     let gone = VariableValue::ColorAlpha { variable: "v-gone".into(), opacity: 0.5 };
-    doc.variables.variables.push(variable("v3", "brand/lost", "c1", VariableType::Color, &[("light", gone.clone()), ("dark", gone)]));
+    doc.variables.variables.push(variable("v3", "brand/lost", "c1", VariableType::Color, &[("light", gone.clone()), ("dark", gone.clone())]));
+    // Aliases: to the lost one (same collection), to one lost only in Dark (from a collection with
+    // one mode, which reads Color in its default mode, Light), to an alias that is left out, and to
+    // one that always resolves.
+    let alias = |to: &str| VariableValue::Alias(to.into());
+    doc.variables.variables.push(variable("v4", "brand/lost-too", "c1", VariableType::Color, &[("light", alias("v3")), ("dark", alias("v3"))]));
+    let half = VariableValue::ColorAlpha { variable: "v1".into(), opacity: 0.5 };
+    doc.variables.variables.push(variable("v5", "brand/half", "c1", VariableType::Color, &[("light", half), ("dark", gone)]));
+    doc.variables.collections.push(Collection {
+        id: "c2".into(),
+        name: "Theme".into(),
+        modes: vec![Mode { id: "one".into(), name: "One".into() }],
+        extends: None,
+    });
+    doc.variables.variables.push(variable("v6", "theme/accent", "c2", VariableType::Color, &[("one", alias("v5"))]));
+    doc.variables.variables.push(variable("v7", "theme/veil", "c2", VariableType::Color, &[("one", alias("v2"))]));
+    doc.variables.variables.push(variable("v8", "theme/deep", "c2", VariableType::Color, &[("one", alias("v4"))]));
     let (bytes, warnings) = export(&doc).unwrap();
     assert!(warnings.iter().any(|w| w == crate::CALCULATIONS_LEFT_OUT), "{warnings:?}");
     let tokens = tokens(&bytes);
     assert!(["Color/Light", "Color/Dark"].iter().all(|set| tokens[set]["brand"].get("lost").is_none()), "left out, not written");
+    assert!(["Color/Light", "Color/Dark"].iter().all(|set| tokens[set]["brand"].get("lost-too").is_none()), "an alias to it too");
+    assert!(tokens["Color/Dark"]["brand"].get("half").is_none() && tokens["Color/Light"]["brand"]["half"]["$value"] == "#ff000080");
+    assert_eq!(tokens["Theme"]["theme"]["accent"]["$value"], "#ff000080", "the colour it shows, not {{brand.half}}");
+    assert_eq!(tokens["Theme"]["theme"]["veil"]["$value"], "{brand.veil}", "a reference that always resolves stays one");
+    assert!(tokens["Theme"]["theme"].get("deep").is_none(), "an alias to an alias that is left out is left out too");
+    let text = tokens.to_string();
+    assert!(!text.contains("{brand.lost") && !text.contains("{brand.half}"), "no reference to a token a set leaves out: {text}");
     assert_eq!(tokens["Color/Light"]["brand"]["veil"]["$value"], "#ff000080");
     assert_eq!(tokens["Color/Dark"]["brand"]["veil"]["$value"], "#008080c0");
     assert_eq!(tokens["Color/Dark"]["brand"]["veil"]["$type"], "color");
