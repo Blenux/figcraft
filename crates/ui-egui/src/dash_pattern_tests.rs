@@ -53,3 +53,14 @@ fn a_single_value_pattern_is_the_dash_and_the_gap() {
     type_into(&mut u, "stroke_gap", "2");
     assert_eq!(dashes(&u, r), [5.0, 2.0]);
 }
+
+/// An odd-length pattern draws twice over (`[4, 2, 1]` is `[4, 2, 1, 4, 2, 1]`): editing its Dash
+/// writes the repeat out, so only the first dash changes and every gap stays as drawn.
+#[test]
+fn an_odd_length_pattern_keeps_its_repeat() {
+    let (mut u, r) = scene(json!([4, 2, 1]));
+    type_into(&mut u, "stroke_dash", "6");
+    assert_eq!(dashes(&u, r), [6.0, 2.0, 1.0, 4.0, 2.0, 1.0]);
+    type_into(&mut u, "stroke_gap", "3");
+    assert_eq!(dashes(&u, r), [6.0, 3.0, 1.0, 4.0, 2.0, 1.0]);
+}

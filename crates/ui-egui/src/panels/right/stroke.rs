@@ -189,12 +189,13 @@ fn brush_row(app: &mut FigApp, ui: &mut Ui, ids: &[NodeId], brush: Option<Option
 
 /// Dash pattern `dashes` with its first dash (`i` 0) or first gap (`i` 1) set to `v`, keeping the
 /// rest of the pattern: the panel shows only the first pair, and editing it must not collapse an
-/// imported `[4, 2, 1, 2]` to two values (#1681). A single value is the dash and the gap alike.
+/// imported `[4, 2, 1, 2]` to two values (#1681). An odd-length pattern is drawn repeated
+/// (`figcraft_pathops::width::dash_pattern`: `[4, 2, 1]` is `[4, 2, 1, 4, 2, 1]`), so it is
+/// written out that way first and only the edited entry changes; `[5]` becomes `[5, 5]`.
 fn set_dash(dashes: &[f64], i: usize, v: f64) -> Vec<f64> {
-    let mut d = dashes.to_vec();
-    if d.len() < 2 {
-        let first = d.first().copied().unwrap_or(4.0);
-        d = vec![first, first];
+    let mut d = if dashes.is_empty() { vec![4.0] } else { dashes.to_vec() };
+    if d.len() % 2 == 1 {
+        d = d.repeat(2);
     }
     if let Some(x) = d.get_mut(i) {
         *x = v.max(0.0);
