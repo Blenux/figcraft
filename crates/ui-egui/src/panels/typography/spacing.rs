@@ -112,12 +112,13 @@ fn lead_field(ui: &mut Ui, id: Id, glyph: LeadGlyph, value: &str, width: f32, ti
     let mut out = None;
     match editing {
         Some(mut text) => {
-            let mut child = ui.new_child(egui::UiBuilder::new().max_rect(text_rect.shrink2(vec2(2.0, 4.0))));
+            let mut child = ui.new_child(egui::UiBuilder::new().max_rect(text_rect.shrink2(vec2(2.0, 0.0))));
             let r = child.add(
                 egui::TextEdit::singleline(&mut text)
                     .id(id.with("te"))
                     .frame(egui::Frame::NONE)
                     .font(regular(11.0))
+                    .align(Align2::LEFT_CENTER)
                     .desired_width(text_rect.width() - 6.0),
             );
             crate::a11y::own_focus(&r);
