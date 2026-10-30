@@ -30,9 +30,9 @@ pub use export::{
 };
 use export::{export, export_frames_pdf, export_layers, pdf_bytes};
 use load::font_report;
+pub use load::{MAX_DOCUMENT_FILE, load, load_bytes, load_path};
 #[cfg(test)]
 pub(crate) use load::{installed_family, sketch_line};
-pub use load::{load, load_bytes, load_path};
 pub(crate) use load::{load_fig, read_capped, recovered, recovered_from, variables_param, write};
 pub use open::MAX_RECENT;
 #[cfg(test)]
@@ -203,7 +203,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "file.colorProfile",
             "Color profile",
-            "{profile?: srgb|displayP3, convert? (default true: convert colour values so colours keep their appearance; false: keep the values and reinterpret them)}  without `profile`, returns the current one (and the app opens the dialog). Returns {profile, changed}",
+            "{profile?: srgb|displayP3, convert? (default true: convert colour values so colours keep their appearance — a colour calculation's mix keeps its ends exact and its colours in between move slightly; false: keep the values and reinterpret them)}  without `profile`, returns the current one (and the app opens the dialog). Returns {profile, changed}",
             true,
             color_profile
         ),

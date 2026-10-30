@@ -37,6 +37,8 @@ pub mod widgets;
 pub mod windows;
 
 #[cfg(test)]
+mod board_connect_tests;
+#[cfg(test)]
 mod board_picker_tests;
 #[cfg(test)]
 mod board_ui_tests;
@@ -71,6 +73,8 @@ mod colorpicker_selection_tests;
 mod comments_tests;
 #[cfg(test)]
 mod component_props_reorder_tests;
+#[cfg(test)]
+mod component_set_narrow_tests;
 #[cfg(test)]
 mod component_swap_default_tests;
 #[cfg(test)]
@@ -119,6 +123,8 @@ mod idle_tests;
 mod ime_tests;
 #[cfg(test)]
 mod import_report_tests;
+#[cfg(test)]
+mod inspect_fields_tests;
 #[cfg(test)]
 mod layers_behaviour_tests;
 #[cfg(test)]
@@ -253,6 +259,7 @@ mod windows_qa_tests;
 #[cfg(test)]
 mod windows_tests;
 pub use canvas::board_bar;
+pub use canvas::board_connect;
 pub use canvas::board_facilitate;
 pub use canvas::comments;
 pub use canvas::cursors;

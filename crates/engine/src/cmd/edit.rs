@@ -127,7 +127,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "edit.pasteDesignLayers",
             "Paste design layers",
-            "{html (the clipboard's HTML) | data (base64 of the clipboard's design data, at most 256 MB), parent?, x?, y?}  layers copied from another design app (a .fig canvas in the clipboard's HTML), read like a .fig file (best effort, with `warnings`), pasted as edit.paste pastes",
+            "{html (the clipboard's HTML) | data (base64 of the clipboard's design data, at most 256 MB), parent?, x?, y?}  layers copied from another design app (a .fig canvas in the clipboard's HTML), read like a .fig file (best effort, with `warnings`), pasted as edit.paste pastes; `missingImages`: the names of pasted layers whose image the clipboard didn't carry (they show the missing-image placeholder)",
             true,
             paste_design_layers
         ),
@@ -305,9 +305,10 @@ pub fn specs() -> Vec<CommandSpec> {
             ok()
         }),
         spec!("node.set", "Set properties", super::props::KEYS, true, set),
-        spec!("node.get", "Get layer", "{id}", false, |s, p| {
+        spec!("node.get", "Get layer", "{id, fields?: [node keys], outline?: bool (not with fields)}", false, |s, p| {
             let i = req_id("node.get", p, "id")?;
-            Ok(crate::inspect::node_json(s.doc()?, i, 1))
+            let options = crate::inspect::InspectOptions::parse(p).map_err(|e| bad("node.get", e))?;
+            Ok(crate::inspect::node_json_with_options(s.doc()?, i, 1, &options))
         }),
         spec!(
             "node.find",
