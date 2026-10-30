@@ -300,3 +300,35 @@ fn commands_confined_to_automation_roots_reach_no_server() {
     let e = s.execute("collab.host", &json!({})).unwrap_err().to_string();
     assert!(!e.contains(crate::file_access::NETWORK_REFUSED), "unconfined, the link is asked: {e}");
 }
+
+/// A team library fetched before stays cached, but confined to automation roots (#1095) checking
+/// it for updates is refused, and `library.updates` and `library.list` say so instead of
+/// answering from the cache as if the server had nothing newer.
+#[test]
+fn a_confined_update_check_reports_the_refusal_not_the_cached_library() {
+    let (mut s, wire) = session(false);
+    wire.lock().unwrap().library = Some(published());
+    s.execute("library.add", &json!({"path": LINK})).unwrap();
+    assert!(matches!(s.libraries.cached(LINK), Some(Ok(_))));
+    let waited = wire.lock().unwrap().waited;
+    let dir = std::env::temp_dir().join(format!("figcraft-roots-updates-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let roots = Arc::new(crate::file_access::Roots::new(&[], &[dir.to_string_lossy().into_owned()]).unwrap());
+    crate::file_access::confined(Some(&roots), || {
+        let u = s.execute("library.updates", &json!({})).unwrap();
+        assert_eq!(u["count"], 0);
+        let e = u["errors"][0]["error"].as_str().unwrap();
+        assert!(e.contains(crate::file_access::NETWORK_REFUSED), "{u}");
+        let l = s.execute("library.list", &json!({})).unwrap();
+        let e = l["libraries"][0]["error"].as_str().unwrap();
+        assert!(e.contains(crate::file_access::NETWORK_REFUSED), "{l}");
+    });
+    assert_eq!(wire.lock().unwrap().waited, waited, "the server was never asked");
+    assert!(matches!(s.libraries.cached(LINK), Some(Ok(_))), "the cached library is kept");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    // Unconfined, the same check reaches the server and finds nothing new.
+    let u = s.execute("library.updates", &json!({})).unwrap();
+    assert_eq!((u["count"].clone(), u["errors"].as_array().map(Vec::len)), (json!(0), Some(0)), "{u}");
+    assert_eq!(wire.lock().unwrap().waited, waited + 1);
+}

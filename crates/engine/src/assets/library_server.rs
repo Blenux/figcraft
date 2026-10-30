@@ -160,6 +160,12 @@ impl Session {
             Some(Ok(lib)) => Some(lib.manifest.version),
             _ => None,
         };
+        // Confined to automation roots, the server isn't asked (#1095). That is no offline
+        // failure: the last version fetched doesn't stand in for an answer, so `library.updates`
+        // and `library.list` say the check was refused instead of reporting no updates.
+        if let Some(why) = crate::file_access::network_refused() {
+            return Err(EngineError::Other(why));
+        }
         let usage = self.doc().ok().map(|d| {
             let id = d.libraries.enabled.iter().find(|l| l.path == path).map(|l| l.id.clone()).unwrap_or_default();
             usage(d, &id)
