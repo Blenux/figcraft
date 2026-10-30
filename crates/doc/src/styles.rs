@@ -140,17 +140,21 @@ impl VariableValue {
         }
     }
 
+    /// The type this value has on its own, which a typed literal needs. None for references
+    /// (aliases and colour calculations): what they read may be missing or loop, so only
+    /// resolving them gives a type, and an expression can't take one as a literal.
     pub fn type_of(&self) -> Option<VariableType> {
         match self {
             VariableValue::Color(_) => Some(VariableType::Color),
             VariableValue::Number(_) => Some(VariableType::Number),
             VariableValue::String(_) => Some(VariableType::String),
             VariableValue::Boolean(_) => Some(VariableType::Boolean),
-            // References have no type of their own: what they read may be missing or loop, so an
-            // expression can't take one as a typed literal.
             VariableValue::Alias(_) | VariableValue::ColorAlpha { .. } | VariableValue::ColorMix { .. } => None,
         }
     }
+    /// The value on one line, as the panel shows it: `→ id` for an alias, `α 50% · id` and
+    /// `from + to @ 40%` for colour calculations, variables by id ([`Self::display_with`] names
+    /// them).
     pub fn display(&self) -> String {
         self.display_with(&|id| id.to_string())
     }
@@ -406,6 +410,9 @@ impl Variables {
         var.values.get(mode).or_else(|| var.values.values().next())
     }
 
+    /// [`Self::resolve`] with `done` shared by every variable one call reads: each is resolved once
+    /// and its outcome kept, one met again while still in flight is a cycle (None), and the call
+    /// reads at most [`Self::RESOLVE_LIMIT`] variables.
     fn resolve_memo(
         &self,
         id: &str,

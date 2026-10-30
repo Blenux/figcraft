@@ -902,6 +902,10 @@ fn var_value(cmd: &str, vars: &Variables, kind: VariableType, for_id: Option<&Va
     })
 }
 
+/// `variable.create`: a variable with a value for every mode of its collection (`values` by mode,
+/// then `value` for the modes left, then its type's default). Every value is checked before the
+/// variable exists (alias targets, calculation operands, the 32-variable limit), so a refused one
+/// leaves nothing behind.
 fn var_create(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "variable.create";
     let c = req_string(cmd, p, "collection")?;
@@ -966,6 +970,10 @@ fn var_create(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(json!({"id": id}))
 }
 
+/// `variable.set`: one mode's value (the default mode when none is named), checked against the
+/// variable as it stands before anything changes: an alias or calculation may not lead back to it,
+/// and a calculation must fit the 32-variable limit. On a variable an extended collection inherits,
+/// the value becomes that mode's override.
 pub fn var_set(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "variable.set";
     let v = req_string(cmd, p, "variable")?;
