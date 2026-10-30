@@ -201,6 +201,8 @@ mod batch_undo_snapshot_tests;
 #[cfg(test)]
 mod binding_lists_tests;
 #[cfg(test)]
+mod board_connected_tests;
+#[cfg(test)]
 mod board_connector_tests;
 #[cfg(test)]
 mod board_grid_tests;
@@ -397,6 +399,8 @@ mod measure_tests;
 #[cfg(test)]
 mod menu_gaps_tests;
 #[cfg(test)]
+mod moved_by_tests;
+#[cfg(test)]
 mod nested_override_tests;
 #[cfg(test)]
 mod node_find_tests;
@@ -563,6 +567,8 @@ mod variable_tests;
 #[cfg(test)]
 mod variables_behaviour_tests;
 #[cfg(test)]
+mod variables_colour_tests;
+#[cfg(test)]
 mod variables_editor_tests;
 #[cfg(test)]
 mod variables_import_shapes_tests;
@@ -590,6 +596,8 @@ mod version_tests;
 mod view_behaviour_tests;
 #[cfg(test)]
 mod vue_codegen_tests;
+#[cfg(test)]
+mod widget_hover_tests;
 #[cfg(test)]
 mod widget_input_tests;
 #[cfg(test)]
