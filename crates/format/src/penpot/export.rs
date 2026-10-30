@@ -1727,7 +1727,13 @@ impl<'a> Exporter<'a> {
                 let mut tokens = Map::new();
                 for var in variables.variables.iter().filter(|v| v.collection == collection.id) {
                     let Some(value) = var.values.get(&mode.id).or_else(|| var.values.values().next()) else { continue };
-                    let (kind, value) = match value {
+                    // Penpot tokens have no shape for colour calculations: the colour they resolve
+                    // to in this mode goes out as a plain colour token.
+                    let Some(value) = variables.flattened(var, &mode.id, value) else {
+                        self.warn(crate::CALCULATIONS_LEFT_OUT);
+                        continue;
+                    };
+                    let (kind, value) = match &value {
                         VariableValue::Alias(target) => {
                             let Some(target_name) = self.token_name(target) else { continue };
                             let kind = match var.kind {
@@ -1742,6 +1748,8 @@ impl<'a> Exporter<'a> {
                             let [r, g, b, a] = c.to_rgba8();
                             ("color", json!(if a == 255 { format!("#{r:02x}{g:02x}{b:02x}") } else { format!("#{r:02x}{g:02x}{b:02x}{a:02x}") }))
                         }
+                        // `flattened` leaves none: this format has no shape for a calculation.
+                        VariableValue::ColorAlpha { .. } | VariableValue::ColorMix { .. } => continue,
                         VariableValue::Number(n) => ("number", json!(num_text(*n))),
                         VariableValue::String(s) => ("string", json!(s)),
                         VariableValue::Boolean(b) => ("boolean", json!(b.to_string())),

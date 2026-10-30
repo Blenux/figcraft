@@ -18,7 +18,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "variable.export",
             "Export variables",
-            "{collections? [ids or names; default every collection of this file, not library copies], format? (json (default): the local variables JSON that variable.import reads | css: custom properties, the default mode on :root and each other mode on [data-<collection>=\"<mode>\"]; numbers in px unless layers or scopes use them as opacity or font weight | tailwind: a Tailwind CSS v4 stylesheet, the default mode as an @theme block named the way inspect.code's tailwind utilities read them: --color-*, --radius-*, --text-*, --spacing-*, --font-*, unique per file) | dart: a Dart file for Flutter, a class of constants per collection and mode (Color, double, String, bool), aliases resolved), path? (write it there)}  → {text}, or {path} when written",
+            "{collections? [ids or names; default every collection of this file, not library copies], format? (json (default): the local variables JSON that variable.import reads, colour calculations as the colour they show in each mode with other collections in their default modes | css: custom properties, the default mode on :root and each other mode on [data-<collection>=\"<mode>\"], colour calculations as the colour they show in that mode with other collections in their default modes; numbers in px unless layers or scopes use them as opacity or font weight | tailwind: a Tailwind CSS v4 stylesheet, the default mode as an @theme block named the way inspect.code's tailwind utilities read them: --color-*, --radius-*, --text-*, --spacing-*, --font-*, unique per file; each other mode as in css; colour calculations as the colour they show in that mode, other collections in their default modes) | dart: a Dart file for Flutter, a class of constants per collection and mode (Color, double, String, bool), aliases and colour calculations resolved), path? (write it there)}  → {text}, or {path} when written",
             false,
             export
         ),
@@ -67,7 +67,7 @@ fn css_safe(text: &str) -> String {
 
 /// Each collection's variables as custom properties (named as generated code names them): the
 /// default mode's values on `:root`, every other mode's on `[data-<collection>="<mode>"]`;
-/// aliases are `var(--name)`.
+/// aliases are `var(--name)` and colour calculations resolve to their colour in the mode.
 fn css(doc: &Document, colls: &[&Collection], tailwind: bool) -> String {
     let vars = &doc.variables;
     // Tailwind theme names, unique per file and the same ones page code reads.
@@ -89,7 +89,10 @@ fn css(doc: &Document, colls: &[&Collection], tailwind: bool) -> String {
             };
             out.push_str(&format!("/* {} · {} */\n{sel} {{\n", css_safe(&c.name), css_safe(&m.name)));
             for v in vars.variables.iter().filter(|v| v.collection == c.id) {
-                let value = match v.values.get(&m.id) {
+                // A calculation is written as the colour it resolves to in this mode (no color-mix()
+                // or relative-colour output).
+                let flat = v.values.get(&m.id).and_then(|x| vars.flattened(v, &m.id, x));
+                let value = match flat.as_ref() {
                     Some(VariableValue::Color(col)) => col.to_css(),
                     Some(VariableValue::Number(x)) if roles.role(v) == crate::token_roles::NumberRole::Unitless => trim_num(*x),
                     Some(VariableValue::Number(x)) => format!("{}px", trim_num(*x)),
@@ -99,7 +102,7 @@ fn css(doc: &Document, colls: &[&Collection], tailwind: bool) -> String {
                         Some(t) => format!("var({})", name(t)),
                         None => continue,
                     },
-                    None => continue,
+                    Some(VariableValue::ColorAlpha { .. } | VariableValue::ColorMix { .. }) | None => continue,
                 };
                 out.push_str(&format!("  {}: {value};\n", name(v)));
             }

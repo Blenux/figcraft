@@ -5,8 +5,9 @@ use figcraft_doc::color::{Color, ColorStop, Gradient, GradientKind, ImageScaleMo
 use figcraft_doc::geom::{Affine, Point, Shape};
 use figcraft_doc::proto::{Action, Direction, Easing, Flow, Interaction, OverlayPosition, Transition, Trigger};
 use figcraft_doc::{
-    AutoLayout, Blur, Collection, CrossAlign, Document, Effect, EffectKind, GridTrack, LayoutMode, LineHeight, MainAlign, Mode, NodeId, NodeKind,
-    Shadow, Sizing, StrokeAlign, StrokeCap, StyleRun, TextAlignH, TextAutoResize, TextData, Variable, VariableType, VariableValue, VectorNetwork,
+    AutoLayout, Blur, Collection, ColorOperand, CrossAlign, Document, Effect, EffectKind, GridTrack, LayoutMode, LineHeight, MainAlign, Mode, NodeId,
+    NodeKind, Shadow, Sizing, StrokeAlign, StrokeCap, StyleRun, TextAlignH, TextAutoResize, TextData, Variable, VariableType, VariableValue,
+    VectorNetwork,
 };
 use serde_json::{Value, json};
 
@@ -523,15 +524,25 @@ fn variable(id: &str, name: &str, collection: &str, kind: VariableType, values: 
     }
 }
 
-#[test]
-fn native_variables_become_token_sets_themes_and_applied_tokens() {
-    let mut doc = Document::new("Tokens");
-    doc.variables.collections.push(Collection {
+/// A "Color" collection `c1` with Light and Dark modes.
+fn light_dark_colors() -> Collection {
+    Collection {
         id: "c1".into(),
         name: "Color".into(),
         modes: vec![Mode { id: "light".into(), name: "Light".into() }, Mode { id: "dark".into(), name: "Dark".into() }],
         extends: None,
-    });
+    }
+}
+
+/// The export's `tokens.json`.
+fn tokens(bytes: &[u8]) -> Value {
+    entries(bytes).into_iter().find(|(name, _)| name.ends_with("tokens.json")).map(|(_, v)| v).unwrap()
+}
+
+#[test]
+fn native_variables_become_token_sets_themes_and_applied_tokens() {
+    let mut doc = Document::new("Tokens");
+    doc.variables.collections.push(light_dark_colors());
     doc.variables.collections.push(Collection {
         id: "c2".into(),
         name: "Size".into(),
@@ -560,11 +571,7 @@ fn native_variables_become_token_sets_themes_and_applied_tokens() {
     doc.node_mut(id).unwrap().bound.insert("width".into(), "v2".into());
 
     let (bytes, _) = export(&doc).unwrap();
-    let mut z = zip::ZipArchive::new(Cursor::new(&bytes[..])).unwrap();
-    let tokens_path = z.file_names().find(|n| n.ends_with("tokens.json")).unwrap().to_owned();
-    let mut text = String::new();
-    z.by_name(&tokens_path).unwrap().read_to_string(&mut text).unwrap();
-    let tokens: Value = serde_json::from_str(&text).unwrap();
+    let tokens = tokens(&bytes);
     assert_eq!(tokens["Color/Light"]["brand"]["primary"]["$value"], "#ff0000");
     assert_eq!(tokens["Color/Dark"]["brand"]["primary"]["$value"], "#880000");
     assert_eq!(tokens["Color/Light"]["brand"]["alias"]["$value"], "{brand.primary}");
@@ -578,6 +585,43 @@ fn native_variables_become_token_sets_themes_and_applied_tokens() {
     assert!(back.variables.variables.iter().any(|v| v.name.ends_with("brand.primary")));
     let bound = back.node(named(&back, "Bound")).unwrap();
     assert!(bound.bound.contains_key("width"));
+}
+
+/// Penpot tokens have no shape for a colour calculation: each mode's token is the colour it shows,
+/// and one that resolves to nothing is left out with a warning.
+#[test]
+fn colour_calculations_export_as_the_colour_they_show() {
+    let mut doc = Document::new("Calculated");
+    doc.variables.collections.push(light_dark_colors());
+    let hex = |h: &str| Color::from_hex(h).unwrap();
+    doc.variables.variables.push(variable(
+        "v1",
+        "brand/primary",
+        "c1",
+        VariableType::Color,
+        &[("light", VariableValue::Color(hex("#ff0000"))), ("dark", VariableValue::Color(hex("#0000ff")))],
+    ));
+    let mix = VariableValue::ColorMix {
+        from: ColorOperand::Variable { variable: "v1".into() },
+        to: ColorOperand::Literal { literal: hex("#00ff0080") },
+        t: 0.5,
+    };
+    doc.variables.variables.push(variable(
+        "v2",
+        "brand/veil",
+        "c1",
+        VariableType::Color,
+        &[("light", VariableValue::ColorAlpha { variable: "v1".into(), opacity: 0.5 }), ("dark", mix)],
+    ));
+    let gone = VariableValue::ColorAlpha { variable: "v-gone".into(), opacity: 0.5 };
+    doc.variables.variables.push(variable("v3", "brand/lost", "c1", VariableType::Color, &[("light", gone.clone()), ("dark", gone)]));
+    let (bytes, warnings) = export(&doc).unwrap();
+    assert!(warnings.iter().any(|w| w == crate::CALCULATIONS_LEFT_OUT), "{warnings:?}");
+    let tokens = tokens(&bytes);
+    assert!(["Color/Light", "Color/Dark"].iter().all(|set| tokens[set]["brand"].get("lost").is_none()), "left out, not written");
+    assert_eq!(tokens["Color/Light"]["brand"]["veil"]["$value"], "#ff000080");
+    assert_eq!(tokens["Color/Dark"]["brand"]["veil"]["$value"], "#008080c0");
+    assert_eq!(tokens["Color/Dark"]["brand"]["veil"]["$type"], "color");
 }
 
 #[test]
