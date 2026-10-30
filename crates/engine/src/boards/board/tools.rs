@@ -122,6 +122,14 @@ impl Session {
         self.tool.overlay.drop_target = end.and_then(|e| e.node());
     }
 
+    /// A stamp among the layers `moving` (being dragged): the object it would stick to where it is
+    /// now, under its centre (as [`super::settle_stamps`] decides when it is let go).
+    pub(crate) fn dragged_stamp_target(&self, moving: &[NodeId], page: NodeId) -> Option<NodeId> {
+        let doc = self.doc().ok().filter(|d| is_board(d))?;
+        let stamp = moving.iter().copied().find(|id| matches!(doc.node(*id).and_then(|n| n.board.as_ref()), Some(BoardItem::Stamp { .. })))?;
+        super::stamp_target(doc, page, doc.world_bounds(stamp)?.center(), Some(stamp))
+    }
+
     /// The pointer moving with the connector tool and no button down: the attach points under it.
     pub(crate) fn connector_hover(&mut self, ev: &PointerEvent) {
         let end = self.doc().is_ok_and(is_board).then(|| self.end_at(ev));
@@ -132,17 +140,17 @@ impl Session {
     /// or free point under the pointer.
     pub(crate) fn connect_drag(&mut self, ev: &PointerEvent, from: End, start: Point) {
         self.tool.gesture = Gesture::Connect { from, start };
-        let c = self.drag_end(ev, from, start).map(|to| Connector { from, to, routing: self.tool.board.routing });
+        let c = self.drag_end(ev, from, start).map(|to| Connector { from, to, routing: self.tool.board.routing, path: None });
         if let Ok(page) = self.page() {
             // One that can't be placed shows nothing, as none would be made.
             let _ = self.preview(|d, _| {
-                if let Some(c) = c {
-                    let _ = make(d, page, c, CAPS);
+                if let Some(c) = &c {
+                    let _ = make(d, page, c.clone(), CAPS);
                 }
                 Ok(())
             });
         }
-        let at = c.and_then(|c| route(self.doc().ok()?, &c)).and_then(|pts| pts.last().copied());
+        let at = c.as_ref().and_then(|c| route(self.doc().ok()?, c)).and_then(|pts| pts.last().copied());
         self.show_attach(c.map(|c| c.to), at);
         if let Ok(ds) = self.ds_mut() {
             ds.revision += 1;
