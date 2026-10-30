@@ -8,7 +8,7 @@ use figcraft_doc::proto::{Action, Direction, Easing, Interaction, OverlayPositio
 use figcraft_doc::{
     BoolOp, CellAlign, ContentAlign, CrossAlign, Document, EffectKind, GridAlign, GridKind, GridTrack, HConstraint, LayoutMode, LetterSpacing,
     LineHeight, MainAlign, Node, NodeId, NodeKind, Sizing, StrokeAlign, StrokeCap, TextAlignH, TextAlignV, TextAutoResize, TextCase, TextDecoration,
-    TextStyle, VConstraint, Variable, VariableType, VariableValue, Variables,
+    TextStyle, VConstraint, VariableType, VariableValue,
 };
 use serde_json::{Map, Value, json};
 
@@ -1720,7 +1720,7 @@ impl<'a> Exporter<'a> {
         if variables.variables.is_empty() {
             return None;
         }
-        let unreferenceable = unreferenceable(variables);
+        let flattener = variables.flattener();
         let mut root = Map::new();
         let mut themes = Vec::new();
         let mut order = Vec::new();
@@ -1732,25 +1732,13 @@ impl<'a> Exporter<'a> {
                 let set_name = if many { format!("{}/{}", collection.name, mode.name) } else { collection.name.clone() };
                 let mut tokens = Map::new();
                 for var in variables.variables.iter().filter(|v| v.collection == collection.id) {
-                    let Some(value) = mode_value(var, &mode.id) else { continue };
+                    let Some(value) = var.value_or_first(&mode.id) else { continue };
                     // Penpot tokens have no shape for colour calculations: the colour they resolve
-                    // to in this mode goes out as a plain colour token.
-                    let Some(value) = variables.flattened(var, &mode.id, value) else {
+                    // to in this mode goes out as a plain colour token, and so does an alias to one
+                    // some set leaves out (its `{name}` would dangle whenever that set is active).
+                    let Some(value) = flattener.value(var, &mode.id, value) else {
                         self.warn(crate::CALCULATIONS_LEFT_OUT);
                         continue;
-                    };
-                    // A reference to a token some set leaves out would dangle whenever that set is
-                    // active: such an alias goes out as the colour it shows here instead.
-                    let value = match value {
-                        VariableValue::Alias(target) if unreferenceable.contains(target.as_str()) => {
-                            let here = BTreeMap::from([(collection.id.clone(), mode.id.clone())]);
-                            let Some(shown) = variables.resolve(&var.id, &here) else {
-                                self.warn(crate::CALCULATIONS_LEFT_OUT);
-                                continue;
-                            };
-                            shown
-                        }
-                        other => other,
                     };
                     let (kind, value) = match &value {
                         VariableValue::Alias(target) => {
@@ -1803,40 +1791,6 @@ impl<'a> Exporter<'a> {
         root.insert("$metadata".into(), json!({"tokenSetOrder": order, "activeThemes": active_themes, "activeSets": active_sets}));
         serde_json::to_string_pretty(&Value::Object(root)).ok()
     }
-}
-
-/// The value a variable's token takes in `mode` (its first value when it has none for that mode).
-fn mode_value<'v>(var: &'v Variable, mode: &str) -> Option<&'v VariableValue> {
-    var.values.get(mode).or_else(|| var.values.values().next())
-}
-
-/// Variables a token reference must not name: colour calculations some token set leaves out (they
-/// resolve to nothing in a mode of their collection) and every alias that leads to one.
-fn unreferenceable(variables: &Variables) -> BTreeSet<&str> {
-    let mut out = BTreeSet::new();
-    for var in &variables.variables {
-        let Some(coll) = variables.collection_by_id(&var.collection) else { continue };
-        if coll.modes.iter().any(|m| mode_value(var, &m.id).is_some_and(|v| variables.flattened(var, &m.id, v).is_none())) {
-            out.insert(var.id.as_str());
-        }
-    }
-    let mut readers: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for var in &variables.variables {
-        for value in var.values.values() {
-            if let VariableValue::Alias(target) = value {
-                readers.entry(target.as_str()).or_default().push(var.id.as_str());
-            }
-        }
-    }
-    let mut stack: Vec<&str> = out.iter().copied().collect();
-    while let Some(id) = stack.pop() {
-        for reader in readers.get(id).into_iter().flatten() {
-            if out.insert(reader) {
-                stack.push(reader);
-            }
-        }
-    }
-    out
 }
 
 /// A layer's visibility, lock, opacity, blend, proportion lock and constraints as Penpot fields.

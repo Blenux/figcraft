@@ -395,6 +395,43 @@ fn rest_and_css_exports_write_calculations_as_their_colours() {
     assert!(text.contains("rgba(255, 0, 0, 0.5") && text.contains("rgba(0, 0, 255, 0.5"), "both modes in CSS: {text}");
 }
 
+/// A hand-edited file can hold a calculation that resolves to nothing (one reading a variable
+/// that isn't there). The CSS export leaves it out, so no property may name it: an alias to it
+/// goes out as the colour it shows, or is left out when that is nothing.
+#[test]
+fn css_never_names_a_calculation_it_leaves_out() {
+    let mut s = Session::new();
+    ex(&mut s, "variable.createCollection", json!({"name": "T", "modes": ["Light", "Dark"]}));
+    let ink = json!({"collection": "T", "name": "ink", "type": "color", "values": {"Light": "#FF0000", "Dark": "#0000FF"}});
+    ex(&mut s, "variable.create", ink);
+    for name in ["lost", "half"] {
+        ex(&mut s, "variable.create", json!({"collection": "T", "name": name, "type": "color", "value": "#000000"}));
+    }
+    for (name, to) in [("lost-too", "lost"), ("half-too", "half"), ("ink-too", "ink")] {
+        ex(&mut s, "variable.create", json!({"collection": "T", "name": name, "type": "color", "value": {"alias": to}}));
+    }
+    // As a hand-edited file could hold them: `lost` reads a variable that isn't there in both
+    // modes, `half` only in Dark.
+    let doc = s.doc_mut().unwrap();
+    let ink = doc.variables.get("ink").unwrap().id.clone();
+    let modes: Vec<String> = doc.variables.collection("T").unwrap().modes.iter().map(|m| m.id.clone()).collect();
+    let gone = figcraft_doc::VariableValue::ColorAlpha { variable: "gone".into(), opacity: 0.5 };
+    let half = figcraft_doc::VariableValue::ColorAlpha { variable: ink, opacity: 0.5 };
+    for v in &mut doc.variables.variables {
+        match v.name.as_str() {
+            "lost" => v.values = modes.iter().map(|m| (m.clone(), gone.clone())).collect(),
+            "half" => v.values = [(modes[0].clone(), half.clone()), (modes[1].clone(), gone.clone())].into_iter().collect(),
+            _ => {}
+        }
+    }
+    let css = ex(&mut s, "variable.export", json!({"format": "css"}))["text"].as_str().unwrap().to_string();
+    let (light, dark) = css.split_once("[data-").unwrap();
+    assert!(!css.contains("var(--lost)") && !css.contains("var(--half)"), "no var() of a property a block leaves out: {css}");
+    assert!(!css.contains("--lost-too"), "an alias to what shows nothing is left out: {css}");
+    assert!(light.contains("--half-too: rgba(255, 0, 0, 0.5") && !dark.contains("--half-too"), "the colour it shows, where it shows one: {css}");
+    assert!(css.contains("--ink-too: var(--ink);"), "an alias that always resolves stays a reference: {css}");
+}
+
 /// A calculation is a variable's value, not a literal an expression may hold: nothing would check
 /// what it reads. Every way an expression arrives refuses one.
 #[test]

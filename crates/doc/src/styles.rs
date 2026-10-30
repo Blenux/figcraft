@@ -271,6 +271,12 @@ pub struct Variable {
 pub const CODE_PLATFORMS: [&str; 3] = ["WEB", "iOS", "ANDROID"];
 
 impl Variable {
+    /// Its value in `mode`, or its first value when it has none there: an export writes every
+    /// mode of the collection, given a value in each or not.
+    pub fn value_or_first(&self, mode: &str) -> Option<&VariableValue> {
+        self.values.get(mode).or_else(|| self.values.values().next())
+    }
+
     /// Whether pickers offer this variable for properties of `scope`.
     pub fn in_scope(&self, scope: &str) -> bool {
         self.scopes.as_ref().is_none_or(|list| list.iter().any(|s| s == scope || s == ALL_SCOPES || (s == "ALL_FILLS" && scope.ends_with("_FILL"))))
@@ -401,6 +407,36 @@ impl Variables {
         }
     }
 
+    /// Values as an export without colour calculations writes them, references included: see
+    /// [`Flattener::value`].
+    pub fn flattener(&self) -> Flattener<'_> {
+        let mut out = BTreeSet::new();
+        for var in &self.variables {
+            let Some(coll) = self.collection_by_id(&var.collection) else { continue };
+            if coll.modes.iter().any(|m| var.value_or_first(&m.id).is_some_and(|v| self.flattened(var, &m.id, v).is_none())) {
+                out.insert(var.id.as_str());
+            }
+        }
+        // Then every alias that leads to one, back along alias chains.
+        let mut readers: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        for var in &self.variables {
+            for value in var.values.values() {
+                if let VariableValue::Alias(target) = value {
+                    readers.entry(target.as_str()).or_default().push(var.id.as_str());
+                }
+            }
+        }
+        let mut stack: Vec<&str> = out.iter().copied().collect();
+        while let Some(id) = stack.pop() {
+            for reader in readers.get(id).into_iter().flatten() {
+                if out.insert(reader) {
+                    stack.push(reader);
+                }
+            }
+        }
+        Flattener { vars: self, unreferenceable: out }
+    }
+
     /// The stored value of `id` in its collection's current mode (the mode chosen when it has a
     /// value for it, else the default mode, else any value).
     fn value_in(&self, id: &str, modes: &BTreeMap<CollectionId, ModeId>) -> Option<&VariableValue> {
@@ -476,6 +512,28 @@ impl Variables {
 
 /// Linear per-channel interpolation (`t` clamped and NaN-guarded: a command validates, a crafted
 /// file must still resolve to a sane colour).
+/// Values as an export that leaves out what resolves to nothing writes them ([`Variables::flattener`]).
+pub struct Flattener<'v> {
+    vars: &'v Variables,
+    /// Colour calculations that resolve to nothing in some mode of their collection, and every
+    /// alias that leads to one.
+    unreferenceable: BTreeSet<&'v str>,
+}
+
+impl Flattener<'_> {
+    /// `val`, a value of `var` in `mode`, as [`Variables::flattened`] writes it, and an alias that
+    /// leads to a calculation some mode leaves out also as the value it shows here: a reference to
+    /// it would read nothing whenever that mode applies. None: it shows nothing in this mode.
+    pub fn value(&self, var: &Variable, mode: &str, val: &VariableValue) -> Option<VariableValue> {
+        match self.vars.flattened(var, mode, val)? {
+            VariableValue::Alias(target) if self.unreferenceable.contains(target.as_str()) => {
+                self.vars.resolve(&var.id, &BTreeMap::from([(var.collection.clone(), mode.to_string())]))
+            }
+            other => Some(other),
+        }
+    }
+}
+
 fn mix_colors(a: &Color, b: &Color, t: f32) -> Color {
     let t = if t.is_finite() { t.clamp(0.0, 1.0) } else { 0.0 };
     // Weighted at both ends so t = 0 and t = 1 give each operand exactly: `x + (y - x) * t` can

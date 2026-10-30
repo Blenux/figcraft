@@ -70,6 +70,7 @@ fn css_safe(text: &str) -> String {
 /// aliases are `var(--name)` and colour calculations resolve to their colour in the mode.
 fn css(doc: &Document, colls: &[&Collection], tailwind: bool) -> String {
     let vars = &doc.variables;
+    let flattener = vars.flattener();
     // Tailwind theme names, unique per file and the same ones page code reads.
     let theme = crate::tailwind::Theme::new(doc);
     let name = |v: &Variable| if tailwind { theme.name(v) } else { css_var_of(v) };
@@ -90,8 +91,9 @@ fn css(doc: &Document, colls: &[&Collection], tailwind: bool) -> String {
             out.push_str(&format!("/* {} · {} */\n{sel} {{\n", css_safe(&c.name), css_safe(&m.name)));
             for v in vars.variables.iter().filter(|v| v.collection == c.id) {
                 // A calculation is written as the colour it resolves to in this mode (no color-mix()
-                // or relative-colour output).
-                let flat = v.values.get(&m.id).and_then(|x| vars.flattened(v, &m.id, x));
+                // or relative-colour output), and so is an alias to one some mode leaves out:
+                // `var()` of a property no block defines would invalidate whatever reads it.
+                let flat = v.values.get(&m.id).and_then(|x| flattener.value(v, &m.id, x));
                 let value = match flat.as_ref() {
                     Some(VariableValue::Color(col)) => col.to_css(),
                     Some(VariableValue::Number(x)) if roles.role(v) == crate::token_roles::NumberRole::Unitless => trim_num(*x),
