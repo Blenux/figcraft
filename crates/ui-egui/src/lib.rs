@@ -39,6 +39,8 @@ pub mod windows;
 #[cfg(test)]
 mod board_connect_tests;
 #[cfg(test)]
+mod board_line_tests;
+#[cfg(test)]
 mod board_picker_tests;
 #[cfg(test)]
 mod board_ui_tests;
@@ -97,6 +99,8 @@ mod devmode_tail_tests;
 mod display_name_tests;
 #[cfg(test)]
 mod duplicate_paint_tests;
+#[cfg(test)]
+mod export_name_tests;
 #[cfg(test)]
 mod export_preview_tests;
 #[cfg(test)]
@@ -230,6 +234,8 @@ mod stroke_row_tests;
 mod style_folder_rename_tests;
 #[cfg(test)]
 mod style_props_tests;
+#[cfg(test)]
+mod table_paste_tests;
 #[cfg(test)]
 mod text_enter_tests;
 #[cfg(test)]

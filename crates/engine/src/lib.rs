@@ -119,6 +119,9 @@ pub struct Session {
     pub active: usize,
     pub clipboard: Clipboard,
     pub prefs: Prefs,
+    /// A command changed a preference that is kept at once (not only when the app quits): the app
+    /// saves the preferences and clears this.
+    pub prefs_unsaved: bool,
     pub tool: tools::ToolState,
     pub ui_requests: Vec<UiRequest>,
     /// The interface's theme once the UI knows it ([`Session::set_ui_dark`]): new files get the
@@ -206,6 +209,8 @@ mod board_connected_tests;
 mod board_connector_tests;
 #[cfg(test)]
 mod board_grid_tests;
+#[cfg(test)]
+mod board_table_paste_tests;
 #[cfg(test)]
 mod board_tables_tests;
 #[cfg(test)]
@@ -398,6 +403,8 @@ mod masks_behaviour_tests;
 mod measure_tests;
 #[cfg(test)]
 mod menu_gaps_tests;
+#[cfg(test)]
+mod move_shortcut_tests;
 #[cfg(test)]
 mod moved_by_tests;
 #[cfg(test)]
