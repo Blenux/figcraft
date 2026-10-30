@@ -309,6 +309,8 @@ mod export_depth_tests;
 #[cfg(test)]
 mod extended_chain_tests;
 #[cfg(test)]
+mod eyedropper_create_tests;
+#[cfg(test)]
 mod facilitate_tests;
 #[cfg(test)]
 mod fig_export_assets_tests;
@@ -606,6 +608,8 @@ mod version_preview_tests;
 mod version_tests;
 #[cfg(test)]
 mod view_behaviour_tests;
+#[cfg(test)]
+mod vote_history_tests;
 #[cfg(test)]
 mod vue_codegen_tests;
 #[cfg(test)]

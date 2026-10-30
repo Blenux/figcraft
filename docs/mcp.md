@@ -93,6 +93,16 @@ Each may be given more than once, as `--flag DIR` or `--flag=DIR`:
   compared by whole names: `/work2/x` is not inside `/work`. On Windows the case comes from the disk (`C:\WORK\x` is
   inside `C:\work`), `\\?\` and UNC (`\\server\share\…`) paths are resolved like drive-letter ones,
   and new names that are devices (`CON`, `NUL`, `COM1`…) or streams (`a.png:x`) are refused.
+- **The network:** a confined call reaches no FigCraft or plugin server, so it can't send a
+  document anywhere through one. Hosting, joining, publishing and sharing a file (`collab.host`,
+  `collab.join`, `collab.publish`, `collab.share` …), team libraries on a server (`library.check`
+  refuses, and `library.updates` / `library.list` report the refusal for each instead of the last
+  version fetched) and plugin directories are refused with `automation roots are set: commands
+  don't reach the network …`. The app started with the flags confines its own window too, so its
+  sharing is off as well. One exception: a root on a network share (a UNC path such as
+  `\\server\share\…`, or a mounted network drive) is still a root, so reading and writing inside
+  it reaches that file server, and saving there sends the document to it. Give only roots you would
+  let the agent's files go to.
 - Not confined: the app's own folders, which no tool names (preferences, Data Recovery copies,
   plugins installed from a plugin directory, the system fonts).
 - `--attach` with either flag is a usage error: the app runs the commands, so only the app can
@@ -523,20 +533,25 @@ design file they refuse.
   client counts down on its own clock. `board.timerState {}` reads it: `state` is `off`,
   `running`, `paused` or `done` (it ran out: 0:00 until someone stops it), `left` milliseconds,
   `text` as `m:ss` (or `h:mm:ss`).
-- `board.vote {action: start|cast|retract|end|clear, …}` → the vote as `board.voteResults` gives
+- `board.vote {action: start|cast|retract|end|clear|delete, …}` → the vote as `board.voteResults` gives
   it. One vote at a time: `start {votes? (per person, 1–99, default 3), on?: all|stickies|selection
   (default all), ids? (with selection; default the selected layers)}` (a vote that ended may be
   replaced; one still running is refused), `cast {id}` puts one of your votes on an object (several
   on the same object are fine; once yours are used up it refuses), `retract {id}` takes one back,
-  `end` shows everyone's votes, `clear` removes the vote and its results. `voter` (any action)
+  `end` shows everyone's votes and keeps the results in the file (the last 20 votes'), `clear` takes the vote and its
+  results off the board (kept results stay), `delete {index}` removes kept results (0 the oldest). `voter` (any action)
   votes as someone else, for scripts and tests; by default you are your live-session client, or
   your name (`pref.userName`) when the file isn't shared. In the app a click on an object votes
   while a vote runs, and a click on your badge (or an Alt-click) takes the vote back.
 - `board.voteResults {voter?}` → `{state: off|running|ended, votesPerPerson, on, by, left, mine:
-  [{id, votes}], voters, results?}`: while it runs you see your own votes only (`mine`, `left`) and
-  how many have voted; once it ends `results` lists `[{id, name, votes, rank}]`, most votes first
-  (ties share a rank), with `name` the sticky's text or the layer's name. Votes on deleted objects
-  don't count.
+  [{id, votes}], voters, results?, sessions}` (off: `{state, sessions}`): while it runs you see your own votes only (`mine`, `left`) and
+  how many have voted; once it ends `results` lists `[{id, name, votes, rank, voters}]`, most votes
+  first (ties share a rank), with `name` the sticky's text or the layer's name and `voters` who
+  voted for it: `[{voter, name, votes}]`, `voter` as the ballots key it (a live-session client as
+  `peer <id>`, else a name) and `name` what they go by (`null` for someone no longer in the live
+  session). `sessions` lists every ended vote's results, newest first:
+  `[{index (in the kept results, 0 the oldest; null for a vote that ended before results were kept), onBoard, ended (ms
+  since 1970), votesPerPerson, on, by, results}]`. Votes on deleted objects don't count.
 
 ```json
 {"command": "board.timer", "params": {"action": "start", "minutes": 10}}
