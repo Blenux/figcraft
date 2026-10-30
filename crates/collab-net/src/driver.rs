@@ -16,7 +16,7 @@
 //! `exchange.rs`), each waiting for its answers as long as a large upload may take; a publish then
 //! joins the new file.
 
-use figcraft_collab::message::{self, ClientMsg, PROTOCOL, Presence, Resolve, ServerMsg};
+use figcraft_collab::message::{self, ClientMsg, Presence, ServerMsg};
 use figcraft_engine::live::{Event, Status};
 use std::time::Duration;
 // `std::time::Instant` on native builds; the browser's clock in the web build.
@@ -25,7 +25,7 @@ use web_time::Instant;
 use crate::exchange::{self, Exchange, Then};
 use crate::inbox::Inbox;
 use crate::invite::Endpoint;
-use crate::join::{GuestConfig, Next, Outcome, Resuming, Seen, Taken, after, closed, hello, resolved, take, too_large, unresolved};
+use crate::join::{GuestConfig, Next, Outcome, Resuming, Seen, Taken, after, ask, closed, hello, resolved, take, too_large, unresolved};
 use crate::limits::NetLimits;
 use crate::requests::Publish;
 use crate::throttle::{PRESENCE_INTERVAL, Throttle, earliest};
@@ -188,9 +188,9 @@ impl<S: Socket> Driver<S> {
         let Some(c) = self.conn.as_mut() else { return };
         c.opened = true;
         c.last_heard = now;
-        let hello = match (&self.asking, &self.cfg.code) {
+        let hello = match (&self.asking, &self.cfg.lookup) {
             (Some((ex, _)), _) => ex.opening().clone(),
-            (None, Some(code)) => ClientMsg::Resolve(Resolve { protocol: PROTOCOL, client_version: message::client_version(), code: code.clone() }),
+            (None, Some(lookup)) => ask(&self.cfg.invite, lookup),
             (None, None) => hello(&self.cfg, &self.resume),
         };
         if !self.write(&hello) {
@@ -225,8 +225,8 @@ impl<S: Socket> Driver<S> {
             return self.end(too_large(&self.cfg.limits), now);
         }
         let taken = match message::decode::<ServerMsg>(bytes, self.cfg.limits.max_server_message) {
-            // The join code's answer: join the file it opens, on a new connection.
-            Ok(ServerMsg::Resolved { file, token }) if self.cfg.code.is_some() => {
+            // The join code's answer (or the team list's): join the file, on a new connection.
+            Ok(ServerMsg::Resolved { file, token }) if self.cfg.lookup.is_some() => {
                 return match resolved(&mut self.cfg, file, token) {
                     Ok(()) => {
                         self.sock.close();
@@ -382,8 +382,8 @@ impl<S: Socket> Driver<S> {
         // Left while asking a server: what it was asked stays done (a file uploaded stays there),
         // nothing follows.
         self.asking = None;
-        // Still asking about the join code: whatever went wrong is final.
-        let outcome = if self.cfg.code.is_some() { unresolved(&self.cfg, outcome) } else { outcome };
+        // Still asking about the join code (or the team list's file): whatever went wrong is final.
+        let outcome = if self.cfg.lookup.is_some() { unresolved(&self.cfg, outcome) } else { outcome };
         if self.conn.take().is_some() {
             self.sock.close();
         }

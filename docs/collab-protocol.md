@@ -664,6 +664,29 @@ resuming with its offline edits, and leaving the session going back to snapshot 
   opening a file, so looking at the list never postpones a file's expiry. Each pair is checked
   like an owner token on `OpenHosting` (its SHA-256 against the stored hash, in constant time).
 
+*Built* (the team list; `figcraft_engine::team`, running it: [`server.md`](server.md#the-team-list)):
+
+- **Listing.** On a server whose operator set `team_files`, `Admin team` on an `OpenHosting`
+  connection that names no file (or a managing one) answers `AdminReply::Team {web, files}`: the
+  files that have a link with a join code now (a link of their own, not a team link), each as a
+  `FileInfo` with the list's access, most recently changed first, at most 500, and the address of
+  the browser build (`web_url`). A server without a list answers `Failed`; one older than the
+  request can't read it. `collab.files {refresh: true}` asks the server in Preferences (not the
+  public server the app ships with), after the owned files.
+- **Joining.** A team list link names the server and the file, `figcraft://join?server=…&file=<id>&team=1`
+  (`Lookup::Team` in `Invite::parse_join`). The guest's first connection sends `ResolveTeam
+  {file}` instead of a hello; the server makes the file's team link the first time (access from
+  `team_files`, label `Team (<access>)`, its token kept in `links.json`) and answers `Resolved
+  {file, token}` as for a join code, then the join goes on with that token on a new connection,
+  in the desktop app and the browser alike. A file that isn't listed, or a server without a list,
+  is `Refused` with the reason; an answer naming another file than the one asked about is taken
+  for none.
+- **Revoking.** Revoking a link (`Admin revoke`) that leaves the file without a coded link revokes
+  its team links too, in the same answer (`Handled::revoked` names every link revoked), so whoever
+  joined with one is disconnected. Admission refuses a team link while the list is off, gives
+  another access, or the file isn't shared, whatever `links.json` still holds, and the server
+  removes such team links when it starts.
+
 *Built* (document sync between apps):
 
 - The host's session runs the core's `Server`, seeded with the document it shared; the host's
