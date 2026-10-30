@@ -18,6 +18,7 @@
 
 use figcraft_collab::message::{self, ClientMsg, PROTOCOL, Presence, Resolve, ServerMsg};
 use figcraft_engine::live::{Event, Status};
+use std::time::Duration;
 // `std::time::Instant` on native builds; the browser's clock in the web build.
 use web_time::Instant;
 
@@ -25,6 +26,7 @@ use crate::exchange::{self, Exchange, Then};
 use crate::inbox::Inbox;
 use crate::invite::Endpoint;
 use crate::join::{GuestConfig, Next, Outcome, Resuming, Seen, Taken, after, closed, hello, resolved, take, too_large, unresolved};
+use crate::limits::NetLimits;
 use crate::requests::Publish;
 use crate::throttle::{PRESENCE_INTERVAL, Throttle, earliest};
 
@@ -54,6 +56,13 @@ struct Conn {
 impl Conn {
     fn new(now: Instant) -> Self {
         Self { started: now, opened: false, welcomed: false, seen: Seen::default(), last_ping: now, last_heard: now }
+    }
+
+    /// How long the host may stay silent. Until the welcome is whole, the document is arriving as
+    /// one message that doesn't count as heard before it is complete, so a large file on a slow
+    /// link gets the long reply timeout instead of the idle one.
+    fn silence_limit(&self, l: &NetLimits) -> Duration {
+        if self.welcomed { l.idle_timeout } else { l.request_reply_timeout }
     }
 }
 
@@ -315,7 +324,7 @@ impl<S: Socket> Driver<S> {
             // A managing connection waits for each answer.
             (true, true) => [Some(c.last_heard + l.request_reply_timeout), None, None],
             (true, false) => {
-                [Some(c.last_ping + l.keepalive), Some(c.last_heard + l.idle_timeout), if c.welcomed { self.throttle.due() } else { None }]
+                [Some(c.last_ping + l.keepalive), Some(c.last_heard + c.silence_limit(l)), if c.welcomed { self.throttle.due() } else { None }]
             }
         });
         earliest(conn.into_iter().flatten().chain([self.reconnect_at]))
@@ -332,7 +341,7 @@ impl<S: Socket> Driver<S> {
         }
         let l = self.cfg.limits;
         let Some(c) = self.conn.as_ref() else { return };
-        let (opened, started, last_heard, last_ping) = (c.opened, c.started, c.last_heard, c.last_ping);
+        let (opened, started, last_heard, last_ping, silence) = (c.opened, c.started, c.last_heard, c.last_ping, c.silence_limit(&l));
         if !opened {
             if now >= started + self.cfg.connect_timeout {
                 self.dropped(format!("no answer from {}", self.server().display()), now);
@@ -345,7 +354,7 @@ impl<S: Socket> Driver<S> {
             }
             return;
         }
-        if now >= last_heard + l.idle_timeout {
+        if now >= last_heard + silence {
             return self.end(Outcome::Retry("the host stopped answering".into()), now);
         }
         let ok = self.throttle.take_due(now).is_none_or(|p| self.write(&ClientMsg::Presence(p)));

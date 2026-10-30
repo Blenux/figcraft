@@ -695,7 +695,9 @@ resuming with its offline edits, and leaving the session going back to snapshot 
   (resuming as the same client after a drop), presence held until the welcome and changes made
   for an earlier connection dropped (the sync client sends them again once caught up), presence throttled to about 30 updates a second
   (latest wins), a `Ping` after 15 s without sending (browsers don't expose WebSocket ping frames;
-  the host answers `Pong`), a connection silent for 45 s counted as dropped, reconnects with the
+  the host answers `Pong`), a connection silent for 45 s counted as dropped (5 minutes before the
+  welcome: it carries the whole document as one message, which a large file on a slow link takes
+  a while to download, and nothing counts as heard until it is complete), reconnects with the
   same growing pauses after a live connection drops, refusals and the end of the session final,
   and a first join that can't reach the host failing at once. The browser layer only feeds it the
   socket's events and one `setTimeout` for its next deadline, and every arrival wakes egui
