@@ -197,3 +197,41 @@ fn a_team_list_link_joins_without_a_token_while_the_file_is_shared() {
     let mut d = join(&format!("figcraft://join?host={}&file={file}&team=1", off.addr()), "Di");
     pump(&mut [&mut d], "no team list", |s| failed(s[0], "keeps no team list"));
 }
+
+#[test]
+fn the_apps_online_files_list_the_team_list_and_open_its_files() {
+    let dir = TempDir::new("team-app");
+    let server = crate::start(&team(dir.path(), "edit")).unwrap();
+    let addr = server.addr();
+    let (mut a, file) = share(addr, "Homepage");
+    // Bob has the same server in Preferences and nothing of his own online.
+    let mut b = session("Bob");
+    ex(&mut b, "pref.publishServer", json!({"url": format!("ws://{addr}/")}));
+    assert_eq!(ex(&mut b, "collab.files", json!({}))["team"], Value::Null, "nothing asked without refresh");
+    let list = ex(&mut b, "collab.files", json!({"refresh": true}));
+    let t = &list["team"];
+    assert_eq!(
+        (&t["state"], &t["web"], &t["files"][0]["file"], &t["files"][0]["name"]),
+        (&json!("listed"), &json!("https://figcraft.example.com/app/"), &json!(file), &json!("Homepage"))
+    );
+    let link = t["files"][0]["link"].as_str().unwrap().to_string();
+    assert_eq!(link, format!("figcraft://join?server=ws://{addr}/&file={file}&team=1"));
+    assert_eq!(
+        t["files"][0]["webLink"],
+        json!(format!(
+            "https://figcraft.example.com/app/#join=figcraft%3A%2F%2Fjoin%3Fserver%3Dws%3A%2F%2F{}%2F%26file%3D{file}%26team%3D1",
+            addr.to_string().replace(':', "%3A")
+        ))
+    );
+    assert!(!list.to_string().contains("token"), "no team link token in the result: {list}");
+    ex(&mut b, "collab.join", json!({"link": link}));
+    pump(&mut [&mut a, &mut b], "Bob in from the list", |s| live(s[1]) && s[0].live().peers.len() == 1);
+    // Another server in Preferences: its list isn't this one.
+    ex(&mut b, "pref.publishServer", json!({"url": "wss://elsewhere.example/"}));
+    assert_eq!(ex(&mut b, "collab.files", json!({}))["team"], Value::Null);
+    // A server without a team list says so.
+    let dir = TempDir::new("team-app-off");
+    let off = crate::start(&Config { open_publish: true, ..config(dir.path()) }).unwrap();
+    ex(&mut b, "pref.publishServer", json!({"url": format!("ws://{}/", off.addr())}));
+    assert_eq!(ex(&mut b, "collab.files", json!({"refresh": true}))["team"]["state"], "none");
+}
