@@ -88,6 +88,8 @@ pub(super) fn spacing_field(
     out
 }
 
+/// A spacing value beside its scrub icon, centered in the same field while idle and editing.
+/// Commits typed text on Enter or focus loss; Escape cancels the draft.
 fn lead_field(ui: &mut Ui, id: Id, glyph: LeadGlyph, value: &str, width: f32, tip: &str) -> Option<String> {
     let t = Tokens::get(ui.ctx());
     let (rect, _) = ui.allocate_exact_size(vec2(width, FIELD_H), Sense::hover());
