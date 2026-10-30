@@ -684,7 +684,8 @@ resuming with its offline edits, and leaving the session going back to snapshot 
 - **Revoking.** Revoking a link (`Admin revoke`) that leaves the file without a coded link revokes
   its team links too, in the same answer (`Handled::revoked` names every link revoked), so whoever
   joined with one is disconnected. Admission refuses a team link while the list is off, gives
-  another access, or the file isn't shared, whatever `links.json` still holds.
+  another access, or the file isn't shared, whatever `links.json` still holds, and the server
+  removes such team links when it starts.
 
 *Built* (document sync between apps):
 

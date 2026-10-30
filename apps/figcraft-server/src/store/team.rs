@@ -51,13 +51,14 @@ impl Store {
         if let Some(made) = made {
             return Ok(made);
         }
+        // Made before the list changes: a failure leaves the links as they were.
+        let (mut link, token) = new_link(access, &label(access), now())?;
         let before = entry.links.clone();
         entry.links.retain(|l| l.team.is_none());
         if entry.links.len() >= max {
             entry.links = before;
             return Err(format!("a file has at most {max} links: revoke one first"));
         }
-        let (mut link, token) = new_link(access, &label(access), now())?;
         link.team = Some(TeamToken(token.clone()));
         entry.links.push(link.clone());
         if let Err(e) = write_json(&path, &entry.links) {
@@ -66,6 +67,27 @@ impl Store {
         }
         log::info!("event=team_link file={file} link={}", link.id);
         Ok(NewLink { link: link.info(file), token })
+    }
+
+    /// At startup: the team links the list doesn't hand out now (it is off, or gives another
+    /// access) are removed for good, so setting `team_files` back doesn't bring them back. Nobody
+    /// keeps a team link's token for later (a team list link names none), so nothing is lost: the
+    /// next join makes a new one. One that can't be removed stays refused at the door, and the
+    /// operator is told.
+    pub(super) fn drop_stale_team_links(&mut self) {
+        let team = self.cfg.hosting.team;
+        let stale = |l: &super::Link| l.team.is_some() && team != Some(l.access);
+        let files: Vec<String> = self.files.iter().filter(|(_, e)| e.links.iter().any(stale)).map(|(id, _)| id.clone()).collect();
+        for file in files {
+            let path = self.dir(&file).join(LINKS);
+            let Some(entry) = self.files.get_mut(&file) else { continue };
+            entry.links.retain(|l| !stale(l));
+            if let Err(e) = write_json(&path, &entry.links) {
+                self.note(format!(
+                    "file {file}: its old team links couldn't be removed ({e}); they are refused, but would work again if team_files were set back to their access"
+                ));
+            }
+        }
     }
 
     /// `file` stopped being shared (a link was revoked): revoke its team links too. The ids

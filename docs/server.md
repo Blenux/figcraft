@@ -193,7 +193,9 @@ someone in, so keep it off on a server open to anyone.
   `<web_url>#join=<the link, escaped>`, which opens the file in the browser.
 - **Stopping.** When the last of a file's links with a code is revoked (Stop sharing does), its
   team link is revoked with it and whoever joined with it is disconnected, as with the other
-  links. Turning the list off, or changing `team_files`, refuses the old team links at once.
+  links. Turning the list off, or changing `team_files`, refuses the old team links at once, and
+  the next start removes them for good (setting it back doesn't bring them back; the next join
+  makes a new one).
 - **What the server keeps.** Unlike other links, a team link's token is kept readable in the
   file's `links.json`, so the server can hand it out: as private as the server key beside it.
 - **Upgrade note.** An app older than the team list shows no list and can't open its links (it

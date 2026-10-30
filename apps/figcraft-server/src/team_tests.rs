@@ -171,10 +171,35 @@ fn turning_the_list_off_or_changing_its_access_refuses_old_team_links() {
     pump(&mut [&mut b], "Bob in, view only", |s| live(s[0]) && s[0].live_summary()["access"] == "view");
     drop(b);
     drop(server);
-    // Off: the list is gone and its links with it.
+    // Off: the list is gone and its links with it, also from the file's links.
     let server = crate::start(&Config { open_publish: true, ..config(dir.path()) }).unwrap();
     let mut b = join(&invite(server.addr(), &file, &view), "Bob");
     pump(&mut [&mut b], "the team link refused", |s| refused(s[0]));
+    drop(b);
+    drop(server);
+    assert!(!std::fs::read_to_string(dir.path().join("files").join(&file).join("links.json")).unwrap().contains(r#""team""#));
+    // On again with the old access: the old links stay refused; the next join gets a new one.
+    let server = crate::start(&team(dir.path(), "view")).unwrap();
+    let mut b = join(&invite(server.addr(), &file, &view), "Bob");
+    pump(&mut [&mut b], "the old view team link still refused", |s| refused(s[0]));
+    assert_ne!(team_link(server.addr(), &file).unwrap(), view);
+}
+
+#[test]
+fn a_team_link_never_handed_out_again_stays_refused_after_the_setting_goes_back() {
+    let dir = TempDir::new("team-back");
+    let mut server = crate::start(&team(dir.path(), "edit")).unwrap();
+    let (a, file) = share(server.addr(), "Homepage");
+    let edit = team_link(server.addr(), &file).unwrap();
+    drop(a);
+    server.stop();
+    // View only for a while, and nobody asks for the view team link…
+    drop(crate::start(&team(dir.path(), "view")).unwrap());
+    // …then edit again: the edit team link of before doesn't come back.
+    let server = crate::start(&team(dir.path(), "edit")).unwrap();
+    let mut b = join(&invite(server.addr(), &file, &edit), "Bob");
+    pump(&mut [&mut b], "the old edit team link refused", |s| refused(s[0]));
+    assert_ne!(team_link(server.addr(), &file).unwrap(), edit);
 }
 
 #[test]

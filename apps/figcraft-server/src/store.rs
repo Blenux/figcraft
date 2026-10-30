@@ -431,6 +431,7 @@ impl Store {
     pub fn open(root: &Path, cfg: StoreConfig) -> Result<Store, String> {
         let mut store = Self::try_open(root, cfg)?.ok_or_else(|| format!("another figcraft-server (or a command) is using {}", root.display()))?;
         store.sweep();
+        store.drop_stale_team_links();
         Ok(store)
     }
 
