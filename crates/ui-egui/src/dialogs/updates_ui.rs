@@ -1,7 +1,6 @@
 //! Software updates, background check at startup, and startup prompt modal.
 
 use crate::FigApp;
-use crate::i18n::tr;
 
 #[cfg(not(target_arch = "wasm32"))]
 use craft_update::updater::{Action, Updater};
