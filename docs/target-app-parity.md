@@ -47,7 +47,7 @@ wall-clock); the `.fig` reader, the multiplayer core and a plugin runtime each n
 native-speaker review, real-file licensing and screen-reader QA need people.
 
 The full number is an additive weighted sum over the dimension table; mainstream and essentials use
-multiplicative discounts, as the standard says.
+multiplicative discounts.
 
 ## What was measured, and how
 
@@ -182,10 +182,10 @@ type, and everything the mainstream number leaves out.
 
 The same question for the typical professional Figma Design user: a product designer who designs
 screens, maintains or uses a design system, prototypes and hands off to developers every week.
-Computed per craftrules `standards/progress-docs.md`.
+Computed with the same method.
 
 **1. Areas used weekly, with weights.** Feature areas 1–16 of the table above, with their weights
-(sum 94). Left out as the standard says: plugins and widgets (18), AI (21), team and organization
+(sum 94). Left out: plugins and widgets (18), AI (21), team and organization
 libraries (19, cloud/team admin), Figma Draw extras (20, not weekly for a product designer),
 localization beyond English, specialist hardware. Real-time multiplayer (17) is cloud collaboration
 and is left out as an area, but its effect on working with Figma users is counted in discount 3.
