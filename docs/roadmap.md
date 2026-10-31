@@ -40,7 +40,7 @@ builders' side-by-side checks with synthetic files; nothing has been run on real
 own files, which save and reopen, and ready for real work (~47%) is above the ~40% bar. The two
 gaps are real but don't break a workflow done in FigCraft: review works asynchronously through
 comments in a shared file, and opening `.fig` is the step that moves work across from Figma, which
-the standard requires for beta, not alpha. Both stay at the top of [`gaps.md`](gaps.md) as beta
+is required for beta, not alpha. Both stay at the top of [`gaps.md`](gaps.md) as beta
 blockers.
 
 ## Milestones
