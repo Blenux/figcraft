@@ -2,6 +2,8 @@
 
 use crate::FigApp;
 
+#[cfg(target_arch = "wasm32")]
+use crate::i18n::tr;
 #[cfg(not(target_arch = "wasm32"))]
 use craft_update::updater::{Action, Updater};
 #[cfg(not(target_arch = "wasm32"))]
