@@ -173,8 +173,7 @@ No alpha blockers: the alpha gate in [`roadmap.md`](roadmap.md#alpha-gate) passe
   still unmeasured (`crates/text/src/metrics_tests.rs`, and a local check over such documents in
   `crates/engine/src/text_metrics_local_tests.rs`).
 - **Estimate:** 15–30 h once `.fig` or REST import of real files is available; needs files whose
-  licence allows use (owner to supply or approve; never committed if not redistributable, see
-  craftrules `standards/test-corpora.md`).
+  licence allows use (owner to supply or approve; never committed if not redistributable).
 
 ### 4. Interaction fidelity not compared tool by tool
 - **Missing:** a side-by-side pass of every tool and panel: cursors, modifier keys while dragging,

@@ -337,8 +337,7 @@ Ranked; detail and milestones in [`docs/roadmap.md`](docs/roadmap.md).
   Run last, Manage, Rust SDK and two examples), docs refresh (#102), the multiplayer core without
   networking (#103: client-scoped ids, change sets, server ordering and validation, client
   reconciliation, convergence tests). Menu breadth 200/203; ready for real work ~47%.
-- **2026-10-10** · Full re-measure against Figma desktop 126.10.7 under the craftrules progress-docs
-  standard: ready for real work ~46%, feature breadth ~76%, stage alpha; progress docs split out
+- **2026-10-10** · Full re-measure against Figma desktop 126.10.7 : ready for real work ~46%, feature breadth ~76%, stage alpha; progress docs split out
   (`docs/target-app-parity.md`, `gaps.md`, `roadmap.md`, `architecture.md`, the per-area parity
   docs); `docs/parity.md` renamed `docs/parity-checklist.md`.
 - **2026-10-10** · Day 2 (PRs #1–#99): vector edit mode depth (transform box, point snapping, arc
@@ -670,6 +669,6 @@ Ranked; detail and milestones in [`docs/roadmap.md`](docs/roadmap.md).
 | 2026-10-10 | minor | Readiness by audience with hours to ~95% (full ~400–750, mainstream ~180–330, essentials ~85–160) |
 | 2026-10-10 | minor | Added essentials user (~53%) and mainstream practitioner (~43%); ready for real work unchanged at ~46% |
 | 2026-10-10 | minor | Alpha gate (core workflows) checked under the revised stage rules: passes, stays alpha |
-| 2026-10-10 | major | Rewritten to the craftrules progress-docs shape after a full re-measure; rubric, area narrative and inventory moved to docs/target-app-parity.md, gaps to docs/gaps.md, milestones to docs/roadmap.md. Depth ~79% (self-graded, 16 areas) → ready for real work ~46% (all dimensions); full parity 115–195 h → 420–790 h |
+| 2026-10-10 | major | Progress docs rewritten after a full re-measure; rubric, area narrative and inventory moved to docs/target-app-parity.md, gaps to docs/gaps.md, milestones to docs/roadmap.md. Depth ~79% (self-graded, 16 areas) → ready for real work ~46% (all dimensions); full parity 115–195 h → 420–790 h |
 | 2026-10-10 | minor | Day-2 refreshes after each batch of PRs (depth 58% → 79%) |
 | 2026-10-09 | major | First roadmap |
